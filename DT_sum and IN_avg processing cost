@@ -1,0 +1,22 @@
+The expression representing the cost for all detection of a function is:
+\\
+$DT_{cost}$ = $DT_{unit}$ * $DT_{sum}$ * $BL_{size}$
+
+To calculate the $DT_{unit}$, a power regression was used based on the same previous executions, as mentioned in Section \ref{sec:sysmodel} (Regression Analysis).
+However, only samples with zero insertions were used to calculate the cost of processing DTs.
+In this case, the $DT_{unit}$ depends on the size of $DT_{sum}$ and the event block $BL_{size}$.
+The $DT_{unit}$ can be found by using the following expression: 
+\\
+$DT_{unit}= 0,082071*(DT_{sum}\wedge-0,875655)*(BL_{size}\wedge-0,265985$) 
+
+The $DT_{cost}$ will always represent the worst-case for that function since it is difficult to know previously how many events of that block will be verified for a few or for all detection.
+A function can be formed by rules of a single device with different detection as well as many different devices when the events will be processed only by the device-related detections.
+
+The next step defines the Insert cost.
+Detection functions only perform inserts, either in alarm or alert databases.
+Only the Correlation function performs queries (AlertDB) and inserts (AlarmDB).
+This way, the expression represents the cost for all inserts in a Detection function:\\
+$IN_{cost}$ = $IN_{unit}$ * ($BL_{size}$ * $IN_{avg}/100$)
+
+The $IN_{unit}$ is determined by:\\
+$IN_{unit}$ = ($EX_{time}$ - $DT_{cost}$) / ($BL_{size}$ * $IN_{avg}/100$)
