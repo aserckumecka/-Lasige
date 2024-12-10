@@ -1,0 +1,123 @@
+\section{Use Case} \label{apend:usecase}
+
+To better illustrate the deployment and processing steps shown in Figures \ref{fig:CCEdeploy} and \ref{fig:CCEprocess}, one of those scenarios used in the Evaluation is detailed here.
+The devices and their parameters are the same.
+
+\textbf{Deployment:}
+
+\underline{Step 1:} The analyst defines the RTL as 1000.
+
+\underline{Step 2:} The analyst writes 50 rules.
+
+\underline{Step 3:} The rules are loaded and interpreted, extracting all DTs.
+
+\underline{Step 4:} Data Aggregator gets the known EPS, the known or estimated DB calls (INS) and the DTs by device.
+
+\underline{Step 5:} The estimated cost is calculated for each device data using the expression \boxed{b}:
+\vspace{0.1cm}\\
+\textbf{webserver.php} = $EX_{time}$ = \underline{443,1 ms}\\
+{\footnotesize $EX_{time} = 1,49571 * ((10\%*609)\wedge 0,39806)$* $(52\wedge 0,34457)*(609\wedge 0,42016) $} \vspace{0.2cm}
+\\
+\textbf{sgbd.postgresql} = $EX_{time}$ = \underline{279,1 ms}\\
+{\footnotesize $EX_{time} = 1,49571 * ((5\%*649)\wedge 0,39806) * (26\wedge 0,34457)*(649\wedge 0,42016)$} \vspace{0.2cm}
+\\
+\textbf{sgbd.mysql} = $EX_{time}$ = \underline{397,7 ms}\\
+{\footnotesize $EX_{time} = 1,49571 * ((6\%*818)\wedge 0,39806) * (34\wedge 0,34457)*(818\wedge 0,42016)$} \vspace{0.2cm}
+\\
+\textbf{proxy.squid} = $EX_{time}$ = \underline{361,7 ms}\\
+{\footnotesize $EX_{time} = 1,49571 * ((7\%*660)\wedge 0,39806) * (36\wedge 0,34457)*(660\wedge 0,42016)$} \vspace{0.2cm}
+\\
+\textbf{ids.snort} = $EX_{time}$ = \underline{413,8 ms}\\
+{\footnotesize $EX_{time} = 1,49571 * ((10\%*543)\wedge 0,39806) * (56\wedge 0,34457)*(543\wedge 0,42016)$} \vspace{0.2cm}
+\\
+\textbf{firewall.sonicwall} = $EX_{time}$ = \underline{440,3 ms}\\
+{\footnotesize $EX_{time} = 1,49571 * ((9\%*658)\wedge 0,39806) * (48\wedge 0,34457)*(658\wedge 0,42016)$} \vspace{0.2cm}
+\\
+\textbf{firewall.ciscoasa} = $EX_{time}$ = \underline{498,2 ms}\\
+{\footnotesize $EX_{time} = 1,49571 * ((9\%*779)\wedge 0,39806) * (46\wedge 0,34457)*(779\wedge 0,42016)$} \vspace{0.2cm}
+
+\underline{Step 6:} Bin Packing defines the best number of Bins and allocates the devices' DTs to the Bins.
+FFD algorithm uses the Bin size (1000) and the regression analysis results to run, sorting the items in descending order, resulting into: \vspace{0.1cm} \\
+$\| ciscoasa \| PHP \hspace{0.1cm}\| sonicwall \| snort \| mysql \| squid \| postgresql \| \\
+\| 498,2 \hspace{0.36cm}\| 443,1 \| 440,3 \hspace{0.55cm}\| 413,8\| 397,7 \hspace{0.05cm}\| 361,7 \| 279,1 \hspace{0.63cm}\| 
+\vspace{0.2cm} \\
+1st Bin: (498,2 + 443,1 = 941,3)\\
+2nd Bin: (440,3 + 413,8 = 854,1)\\
+3rd Bin: (397,7 + 361,7 = 759,4)\\
+4th Bin: (279,1)\\
+\underline{Sum = 2833,9}$\vspace{0.2cm}
+
+\underline{Step 7:} Based on the Bin Packing result, four Detection functions will be created, in addition to the Correlation function.
+This scenario is clearly better than applying any customization methods, but it could be better tuned.
+For example, giving the analyst the possibility of tolerating 5\% of additional RTL for cases like this, Bin Packing would define only three Bins for DTs, eliminating the last one (759,4 + 279,1 = 1038,5).
+It could reduce up to 25\% Detection function calls.
+
+\underline{Step 8:} The Automatic Code Generator receives the groups of instructions and converts them into code.
+
+\underline{Step 9:} Four Detection functions and the Correlation function are deployed to AWS, being available for processing data immediately. 
+The deploying process is finished.
+\\
+
+\textbf{Processing:}
+
+\underline{Step 1:} Events are received and organized by device.
+An example of a reduced event in JSON format:
+\begin{lstlisting}[basicstyle=\scriptsize]
+{
+  src_ip: 200.1.1.18, dvc: 10.0.49.185, msg: Failed 
+  login, eventid: 1, rt: 2022-07-21T17:09:04.488, 
+  dvchost: webserver.php, duser: duser49, dst_ip: 
+  172.25.49.185, dhost: dhost49
+}
+\end{lstlisting}
+
+\underline{Step 2:} The device events are sent to the queues according to the Lambda identifiers, associated with that device.
+
+When the queues reach the maximum size or the timeout based on the RTL (\underline{Step 3}), the Queue Monitor packs the data and triggers the respective Lambdas (\underline{Step 4}).
+
+\underline{Step 5:} All Detection functions can perform alerts or alarms, as defined in Section \ref{sec:RtoF}.
+An example of an Alert in JSON format is shown next.
+
+\begin{lstlisting}[basicstyle=\scriptsize]
+{
+  "id": "_ff5295a080360ac57b6ab26b62317ceb4a75145a",
+  "rt": "2022-06-27T23:32:00.211Z",
+  "events": "eventid=1105, dvchost=ids.snort, 
+     rt=2022-06-27T20:32:05.167"
+}
+\end{lstlisting}
+
+\underline{Step 6:} The Correlation function queries the AlertDB and creates alarms (\underline{Step 7}) when a match occurs.
+Example of an alarm in JSON format:
+
+\begin{lstlisting}[basicstyle=\scriptsize]
+{
+  "id": {
+   "S": "12345678-abcd-1234-abcd-123456789x13"
+  },
+  "rt": {
+   "S": "2022-06-27T23:32:03.295Z"
+  },
+  "events": {
+   "S": "[
+   {"rt":"2022-06-27T23:32:00.211Z",
+       "id":"_83bbe7e2ee904ca2d985b2c62c81acc6e69b60d3",
+       "events":"eventid=182, dvchost=webserver.php, 
+       rt=2022-06-27T20:31:58.837"}, 
+   {"rt":"2022-06-27T23:32:00.211Z",
+       "id":"_bc0c81e27ca7b5f7782583e0347633581718a987",
+       "events":"eventid=182, dvchost=webserver.php, 
+       rt=2022-06-27T20:31:58.837"}, 
+   {"rt":"2022-06-27T23:32:00.211Z",
+       "id":"_b7a87936144684abb7fd43824e3aa787de584c68",
+       "events":"eventid=182, dvchost=webserver.php, 
+       rt=2022-06-27T20:31:58.837"}
+   ]"
+  },
+  "ruleInfo": {
+   "S": "{level:high, title:Correlation rule test number 13}"
+  }                                                     
+}
+\end{lstlisting}
+
+\underline{Steps 6/8:} The Processing ends with the Alarms being displayed to the analyst.
